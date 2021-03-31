@@ -44,7 +44,7 @@ ReadKey();
 
 class ItemCounter
 {
-    private readonly Dictionary<string, Tuple<int, int[]>> reminders = new Dictionary<string, Tuple<int, int[]>>();
+    private readonly Dictionary<string, Tuple<int, int[]>> reminders = new ();
 
     public void Add(string name, int respawn, params int[] notification) => reminders[name] = new Tuple<int, int[]>(respawn, notification);
 
