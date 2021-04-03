@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using static System.Console;
 
 var counter = new ItemCounter();
+
 counter.Add("mega", 35, 10, 5);
 counter.Add("red", 25, 7, 4);
 counter.Add("yellow", 25, 7, 4);
@@ -17,10 +18,12 @@ counter.Add("blue three", 25, 7, 4);
 counter.Add("smoke", 60, 7, 4);
 counter.Add("slow", 60, 7, 4);
 
-var synthesizer = new SpeechSynthesizer { Rate = 4 };
+var synthesizer = new SpeechSynthesizer { 
+    Rate = 4
+};
 synthesizer.SetOutputToDefaultAudioDevice();
 
-counter.ItemEvent += (sender, e) =>
+counter.ItemEvent += (_, e) =>
 {
     WriteLine($"{e.Item1} {e.Item2}");
     synthesizer.SpeakAsync(e.Item2);
@@ -28,11 +31,7 @@ counter.ItemEvent += (sender, e) =>
 
 var recognizer = new SpeechRecognitionEngine(new System.Globalization.CultureInfo("en-US"));
 
-var choices = new Choices(counter.GetCommands());
-var builder = new GrammarBuilder();
-builder.Append(choices);
-
-var grammar = new Grammar(builder);
+var grammar = new Grammar(new GrammarBuilder(new Choices(counter.GetCommands())));
 
 recognizer.LoadGrammar(grammar);
 recognizer.SpeechRecognized += counter.SpeechRecognized;
@@ -44,15 +43,15 @@ ReadKey();
 
 class ItemCounter
 {
-    private readonly Dictionary<string, Tuple<int, int[]>> reminders = new Dictionary<string, Tuple<int, int[]>>();
+    private readonly Dictionary<string, (int, int[])> reminders = new();
 
-    public void Add(string name, int respawn, params int[] notification) => reminders[name] = new Tuple<int, int[]>(respawn, notification);
+    public void Add(string name, int respawn, params int[] notification) => reminders[name] = (respawn, notification);
 
     public string[] GetCommands() => reminders.Keys.Append("start").ToArray();
 
     DateTime zeroTime = DateTime.Now;
 
-    public event EventHandler<Tuple<TimeSpan, string>> ItemEvent;
+    public event EventHandler<(TimeSpan, string)> ItemEvent;
 
     public void SpeechRecognized(object sender, SpeechRecognizedEventArgs e)
     {
@@ -68,16 +67,18 @@ class ItemCounter
         var (resp, rem) = reminders[e.Result.Text];
         var nextRespawn = (DateTime.Now - zeroTime).Add(TimeSpan.FromSeconds(resp));
 
-        Task.Delay(TimeSpan.FromSeconds(resp)).ContinueWith(p => ItemEvent(this, Tuple.Create(DateTime.Now - zeroTime, $"{e.Result.Text} now")));
+        Task.Delay(TimeSpan.FromSeconds(resp)).ContinueWith(p => ItemEvent(this, (DateTime.Now - zeroTime, $"{e.Result.Text} now")));
+
+        
 
         foreach (var i in rem)
         {
             var delay = resp - i;
             Task.Delay(TimeSpan.FromSeconds(delay)).ContinueWith(p => ItemEvent(this,
-                Tuple.Create(DateTime.Now - zeroTime, $"{e.Result.Text} in {i}, {nextRespawn.Seconds} ")));
+                (DateTime.Now - zeroTime, $"{e.Result.Text} in {i}, {nextRespawn.Seconds} ")));
         }
 
         ItemEvent(this,
-                Tuple.Create(DateTime.Now - zeroTime, $"{e.Result.Text} is at {nextRespawn.Seconds}"));
+                (DateTime.Now - zeroTime, $"{e.Result.Text} is at {nextRespawn.Seconds}"));
     }
 }
